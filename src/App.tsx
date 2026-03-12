@@ -1,37 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
-import { Send, Anchor, Loader2 } from 'lucide-react';
+import { Send, Anchor, Loader2, Users, MessageSquareShare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 
-const SYSTEM_INSTRUCTION = `Eres "El Barco", un guía filosófico, directo y confrontativo basado en el Método BDL (Barco, Diamante, León). Tu objetivo es ayudar al usuario a realizar "el viaje de las 5.000 millas hacia adentro" para identificar sus creencias limitantes, sus patrones inconscientes y su Ego (la identidad falsa).
+// Instrucciones basadas estrictamente en la Tesis Fundacional BDL
+const SYSTEM_INSTRUCTION = `Eres "El Barco", el primer elemento del método BDL. Simbolizas el viaje de autoconocimiento[cite: 17, 18, 19].
+Tu objetivo es ayudar al usuario a realizar el viaje de 5.000 millas hacia adentro para escudriñar el corazón[cite: 75, 926].
 
-Tono: Minimalista, profundo, empático pero confrontativo. Usas verdades directas. No eres complaciente, eres un espejo. Sabes que "no podemos aprender algo que creemos que ya sabemos" y que "la mente es como un paracaídas: solo funciona si está abierta".
+FILOSOFÍA:
+- "No podemos aprender algo que creemos que ya sabemos"[cite: 51].
+- Todo es normal. Todo es entrenamiento. Todo cuenta. Nada nos pertenece[cite: 293, 301].
+- El diagnóstico busca revelar el Ego (identidad falsa)[cite: 594].
 
-Mecánica del Quiz: Vas a realizar una entrevista de diagnóstico de máximo 4 a 5 preguntas. REGLA DE ORO: DEBES HACER SOLO UNA PREGUNTA A LA VEZ. Espera la respuesta del usuario antes de pasar a la siguiente.
+MECÁNICA:
+1. Haz 4 preguntas confrontativas, UNA A LA VEZ.
+2. Identifica cuál de las raíces del "Árbol de la Muerte" (culpa, vergüenza, miedo, orgullo, rabia, control, apatía o tristeza) está anclando al usuario[cite: 618, 622, 801].
+3. Al final, entrega el Diagnóstico Final:
+   - Tu Máscara (Ego).
+   - Tu Raíz (Árbol de la Muerte).
+   - Tu Patrón Inconsciente.
 
-Estructura de las Preguntas:
-1. El Síntoma (La Reacción): Pregunta sobre una situación de frustración recurrente. (Ej: "¿En qué área de tu vida sientes que corres mucho pero no avanzas?").
-2. El Obstáculo Oculto: Cuestiona el porqué de esa situación para empezar a ver el "Círculo del Ego" (miedo, orgullo, necesidad de validación, comparación, escasez).
-3. La Raíz (El Árbol de la Muerte): Busca llegar a la herida profunda. Las opciones conceptuales son las raíces del Árbol de la Muerte: culpa, vergüenza, miedo, orgullo, rabia, control, apatía o tristeza. Haz una pregunta que lo obligue a elegir o describir cuál de estas emociones gobierna su reacción.
-4. El Espejo de Carl Jung: Relaciona su respuesta con su patrón inconsciente.
-
-El Diagnóstico Final: Una vez el usuario responda la última pregunta, entregarás un resumen minimalista en 3 puntos:
-Tu Máscara (El Ego): [Lo que la persona intenta demostrar al mundo].
-Tu Raíz (El Árbol de la Muerte): [Cuál de las raíces está anclando su vida y qué herida revela].
-Tu Patrón Inconsciente: [Cómo esto está saboteando su verdadera identidad (El León)].
-
-El Cierre (El Puente): Cierra SIEMPRE tu diagnóstico con esta exacta pregunta confrontativa para invitarlo a la transformación: "La mayoría de los problemas de nuestra vida no vienen del mundo, vienen de patrones inconscientes dentro de nosotros. Te encuentras frente al puente de decisión: ¿Cortarás el patrón... o se lo heredarás a tus hijos?"
-
-Contexto del Método BDL:
-- B + D = L (Barco + Diamante = León)
-- Barco = Autoconocimiento (el viaje de 5000 millas hacia el interior, escudriñar el corazón).
-- Diamante = Transformación consciente (el carbón bajo presión se revela, quitar lo que sobra).
-- León = Verdadera identidad (Amor, Poder, Dominio propio, soberanía interior, no es zoológico es arquetípico).
-- El Árbol de la Muerte: Raíces profundas (culpa, vergüenza, miedo, orgullo, rabia, control, apatía, tristeza). Debajo hay heridas no sanadas.
-- El Árbol de la Vida: Raíces (hábitos, sabiduría, disciplina), Tronco (conciencia), Frutos (amor, gozo, paz, paciencia, bondad, mansedumbre, templanza).
-- El Puente: La decisión de dejar de vivir inconscientemente.
-- Principios: "Todo es normal. Todo es entrenamiento. Todo cuenta. Nada nos pertenece."`;
+CIERRE OBLIGATORIO:
+Termina SIEMPRE con: "Te encuentras frente al puente de decisión: ¿Cortarás el patrón... o se lo heredarás a tus hijos?"[cite: 650, 659, 838].`;
 
 type Message = {
   id: string;
@@ -44,51 +35,37 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Detectar si el diagnóstico ha terminado para mostrar el CTA de Telegram
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === 'model' && lastMsg.text.includes("¿Cortarás el patrón...")) {
+      setIsFinished(true);
     }
   }, [messages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleStart = async () => {
     setStarted(true);
     setIsLoading(true);
-    
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const chat = ai.chats.create({
-        model: 'gemini-3.1-pro-preview',
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-        }
+        model: 'gemini-1.5-pro', // Versión estable y potente
+        config: { systemInstruction: SYSTEM_INSTRUCTION, temperature: 0.6 }
       });
-      
       setChatSession(chat);
-      
-      // Send an initial hidden message to trigger the first question
-      const response = await chat.sendMessage({ message: "Hola. Estoy listo para iniciar el viaje de las 5.000 millas." });
-      
-      setMessages([
-        {
-          id: Date.now().toString(),
-          role: 'model',
-          text: response.text || "Bienvenido. ¿En qué área de tu vida sientes que corres mucho pero no avanzas?",
-        }
-      ]);
-    } catch (error) {
-      console.error("Error starting chat:", error);
-      setMessages([
-        {
-          id: Date.now().toString(),
-          role: 'model',
-          text: "Hubo un error al iniciar el viaje. Por favor, recarga la página.",
-        }
-      ]);
+      const response = await chat.sendMessage({ message: "Inicia el viaje. Hazme la primera pregunta confrontativa." });
+      setMessages([{ id: 'init', role: 'model', text: response.text }]);
+    } catch (e) {
+      setMessages([{ id: 'err', role: 'model', text: "La tormenta es fuerte. Recarga para reintentar." }]);
     } finally {
       setIsLoading(false);
     }
@@ -96,152 +73,106 @@ export default function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !chatSession || isLoading) return;
+    if (!input.trim() || !chatSession || isLoading || isFinished) return;
 
     const userText = input.trim();
     setInput('');
-    
-    const newUserMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: userText,
-    };
-    
-    setMessages(prev => [...prev, newUserMsg]);
+    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userText }]);
     setIsLoading(true);
 
     try {
       const response = await chatSession.sendMessage({ message: userText });
-      
-      const newModelMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: response.text || "...",
-      };
-      
-      setMessages(prev => [...prev, newModelMsg]);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: "La tormenta interrumpió la comunicación. Intenta de nuevo.",
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'model', text: response.text }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { id: 'err', role: 'model', text: "Comunicación interrumpida. Reintenta." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#f5f5f5] font-sans selection:bg-white/20">
+    <div className="min-h-screen bg-[#050505] text-[#f5f5f5] selection:bg-white/10 overflow-x-hidden">
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div 
-            key="landing"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.8 } }}
+            key="hero"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex flex-col items-center justify-center min-h-screen p-6 text-center"
           >
-            <div className="max-w-2xl mx-auto space-y-12">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 1 }}
-              >
-                <Anchor className="w-12 h-12 mx-auto mb-8 text-white/40" strokeWidth={1} />
-                <h1 className="font-serif text-5xl md:text-7xl font-light tracking-tight mb-6">
-                  El Club de las<br/>5.000 Millas
-                </h1>
-                <p className="text-lg md:text-xl text-white/60 font-serif italic max-w-lg mx-auto leading-relaxed">
-                  "El viaje más emocionante no es al centro de la Tierra ni a los confines del universo... sino al fondo de uno mismo."
-                </p>
-              </motion.div>
-              
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1, duration: 1 }}
-                onClick={handleStart}
-                className="group relative inline-flex items-center justify-center px-8 py-4 font-medium tracking-widest text-xs uppercase border border-white/20 rounded-full hover:bg-white hover:text-black transition-all duration-500 overflow-hidden cursor-pointer"
-              >
-                <span className="relative z-10">Comenzar el Viaje</span>
-              </motion.button>
-            </div>
+            <Anchor className="w-12 h-12 mb-8 text-white/20 animate-pulse" strokeWidth={1} />
+            <h1 className="font-serif text-5xl md:text-7xl font-light mb-6 tracking-tighter">
+              El Club de las<br/>5.000 Millas
+            </h1>
+            <p className="font-serif italic text-white/50 mb-12 max-w-md mx-auto">
+              "El viaje más emocionante no es a los confines del universo... sino al fondo de uno mismo." [cite: 34, 35, 732, 733]
+            </p>
+            <button 
+              onClick={handleStart}
+              className="px-10 py-4 border border-white/20 rounded-full text-xs uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-700 hover:scale-105"
+            >
+              Comenzar el Viaje
+            </button>
           </motion.div>
         ) : (
-          <motion.div 
-            key="chat"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8 }}
-            className="flex flex-col h-screen max-w-3xl mx-auto"
-          >
-            <header className="flex items-center justify-center py-6 border-b border-white/5 shrink-0">
-              <h2 className="font-serif text-xl tracking-widest uppercase text-white/40">El Barco</h2>
+          <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-screen max-w-2xl mx-auto border-x border-white/5 bg-[#080808]/50 shadow-2xl">
+            <header className="p-6 border-b border-white/5 text-center flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-[0.4em] text-white/20">Misión: Diagnóstico BDL</span>
+              <Anchor className="w-4 h-4 text-white/20" />
             </header>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-12 custom-scrollbar">
               {messages.map((msg) => (
-                <motion.div 
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div 
-                    className={`max-w-[85%] md:max-w-[75%] ${
-                      msg.role === 'user' 
-                        ? 'bg-white/10 rounded-2xl rounded-tr-sm px-6 py-4 text-sm' 
-                        : 'font-serif text-lg md:text-xl leading-relaxed text-white/90'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                      <p>{msg.text}</p>
-                    ) : (
-                      <div className="markdown-body">
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
-                      </div>
-                    )}
+                <motion.div key={msg.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`${msg.role === 'user' ? 'bg-white/5 px-4 py-3 rounded-2xl text-sm border border-white/10' : 'font-serif text-xl leading-relaxed text-white/90'}`}>
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
                 </motion.div>
               ))}
+
               {isLoading && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex justify-start"
-                >
-                  <div className="text-white/30 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs uppercase tracking-widest">Navegando...</span>
-                  </div>
+                <div className="flex items-center gap-3 text-white/20">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-[10px] uppercase tracking-widest">Escudriñando el corazón...</span>
+                </div>
+              )}
+
+              {isFinished && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-8 border border-white/10 rounded-3xl bg-white/5 text-center space-y-6">
+                  <Users className="w-10 h-10 mx-auto text-white/40" />
+                  <h3 className="font-serif text-2xl">Has cruzado el Puente.</h3>
+                  <p className="text-sm text-white/50 leading-relaxed italic">
+                    "El método BDL no busca crear seguidores. Busca despertar soberanos." [cite: 353, 532, 533, 905]
+                  </p>
+                  <a 
+                    href="https://t.me/+GQywOh8TqC02YzNk" 
+                    target="_blank" 
+                    className="flex items-center justify-center gap-3 w-full py-4 bg-white text-black rounded-xl font-bold hover:bg-white/90 transition-all uppercase text-[10px] tracking-widest"
+                  >
+                    <MessageSquareShare className="w-4 h-4" />
+                    Entrar a la Tribu y hablar con Simba
+                  </a>
                 </motion.div>
               )}
               <div ref={messagesEndRef} />
             </div>
-            
-            <div className="p-6 shrink-0">
-              <form onSubmit={handleSubmit} className="relative flex items-center">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Tu respuesta..."
-                  disabled={isLoading}
-                  className="w-full bg-transparent border-b border-white/20 py-4 pr-12 text-lg focus:outline-none focus:border-white/60 transition-colors disabled:opacity-50"
-                  autoFocus
-                />
-                <button 
-                  type="submit" 
-                  disabled={!input.trim() || isLoading}
-                  className="absolute right-0 p-2 text-white/40 hover:text-white disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+
+            {!isFinished && (
+              <form onSubmit={handleSubmit} className="p-6 bg-gradient-to-t from-[#050505] to-transparent">
+                <div className="relative group">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Escribe con honestidad..."
+                    disabled={isLoading}
+                    className="w-full bg-transparent border-b border-white/10 py-4 pr-12 text-lg focus:outline-none focus:border-white/40 transition-all"
+                    autoFocus
+                  />
+                  <button type="submit" disabled={!input.trim() || isLoading} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors">
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
               </form>
-            </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
