@@ -1,0 +1,9 @@
+{
+  "name": "el_club_5000_millas",
+  "version": "1.0.0",
+  "description": "App de chat con Gemini",
+  "main": "api/chat.js",
+  "dependencies": {
+    "@google/generative-ai": "latest"
+  }
+}
