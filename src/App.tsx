@@ -24,7 +24,9 @@ Tu Patrón Inconsciente: [Cómo esto está saboteando su verdadera identidad (El
 El Cierre (El Puente): Cierra SIEMPRE tu diagnóstico con esta exacta pregunta confrontativa para invitarlo a la transformación: "La mayoría de los problemas de nuestra vida no vienen del mundo, vienen de patrones inconscientes dentro de nosotros. Te encuentras frente al puente de decisión: ¿Cortarás el patrón... o se lo heredarás a tus hijos?"
 
 La Invitación Final: Inmediatamente después de la pregunta del puente, añade esta invitación exacta:
-"Si estás listo para cruzar el puente y comenzar tu transformación, te invito a unirte a nuestra comunidad: **El club 5.000 millas - Expedition**. Al unirte, recibirás acceso a nuestro GPT-asistente personalizado: **Simba: el cartógrafo del alma**, diseñado para guiarte en tu proceso. Únete aquí: [https://t.me/+GQywOh8TqC02YzNk](https://t.me/+GQywOh8TqC02YzNk)"
+"Si estás listo para cruzar el puente y comenzar tu transformación, te invito a unirte a nuestra comunidad: **El club 5.000 millas - Expedition**. Al unirte, recibirás acceso a nuestro GPT-asistente personalizado: **Simba: el cartógrafo del alma**, diseñado para guiarte en tu proceso.
+
+[Unirme a la Expedición](https://t.me/+GQywOh8TqC02YzNk)"
 
 Contexto del Método BDL:
 - B + D = L (Barco + Diamante = León)
@@ -204,7 +206,28 @@ export default function App() {
                       <p>{msg.text}</p>
                     ) : (
                       <div className="markdown-body">
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node, ...props }) => {
+                              const isTelegramLink = props.href === 'https://t.me/+GQywOh8TqC02YzNk';
+                              if (isTelegramLink) {
+                                return (
+                                  <a 
+                                    {...props} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="group relative inline-flex items-center justify-center px-8 py-4 mt-6 font-medium tracking-widest text-xs uppercase border border-white/20 rounded-full hover:bg-white hover:text-black transition-all duration-500 overflow-hidden cursor-pointer !no-underline text-white"
+                                  >
+                                    {props.children}
+                                  </a>
+                                );
+                              }
+                              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 opacity-80 hover:opacity-100" />;
+                            }
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
                       </div>
                     )}
                   </div>
