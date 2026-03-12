@@ -26,7 +26,7 @@ El Cierre (El Puente): Cierra SIEMPRE tu diagnóstico con esta exacta pregunta c
 La Invitación Final: Inmediatamente después de la pregunta del puente, añade esta invitación exacta:
 "Si estás listo para cruzar el puente y comenzar tu transformación, te invito a unirte a nuestra comunidad: **El club 5.000 millas - Expedition**. Al unirte, recibirás acceso a nuestro GPT-asistente personalizado: **Simba: el cartógrafo del alma**, diseñado para guiarte en tu proceso.
 
-[Unirme a la Expedición](https://t.me/+GQywOh8TqC02YzNk)"
+[Únete a la Expedición](https://t.me/+GQywOh8TqC02YzNk)"
 
 Contexto del Método BDL:
 - B + D = L (Barco + Diamante = León)
@@ -213,12 +213,12 @@ export default function App() {
                               if (isTelegramLink) {
                                 return (
                                   <a 
-                                    {...props} 
+                                    href={props.href}
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     className="group relative inline-flex items-center justify-center px-8 py-4 mt-6 font-medium tracking-widest text-xs uppercase border border-white/20 rounded-full hover:bg-white hover:text-black transition-all duration-500 overflow-hidden cursor-pointer !no-underline text-white"
                                   >
-                                    {props.children}
+                                    <span className="relative z-10">Únete a la Expedición</span>
                                   </a>
                                 );
                               }
