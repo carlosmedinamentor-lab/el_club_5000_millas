@@ -50,8 +50,46 @@ export default function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chatSession, setChatSession] = useState<Chat | null>(null);
+  const [pendingDiagnosis, setPendingDiagnosis] = useState<string | null>(null);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombre.trim() || !email.trim() || !pendingDiagnosis) return;
+
+    setIsSubmittingEmail(true);
+
+    try {
+      await fetch('https://services.leadconnectorhq.com/hooks/JjPQcPMDSUM4LdEE0pGZ/webhook-trigger/3d322c11-8802-475c-b46d-b8c1bb02045b', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          email: email.trim(),
+          diagnostico: pendingDiagnosis,
+        }),
+      });
+    } catch (error) {
+      console.error('Error sending lead data:', error);
+    }
+
+    const diagnosisMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'model',
+      text: pendingDiagnosis,
+    };
+    setMessages(prev => [...prev, diagnosisMsg]);
+    setPendingDiagnosis(null);
+    setShowEmailForm(false);
+    setNombre('');
+    setEmail('');
+    setIsSubmittingEmail(false);
+  };
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -117,14 +155,24 @@ export default function App() {
 
     try {
       const response = await chatSession.sendMessage({ message: userText });
-      
-      const newModelMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: response.text || "...",
-      };
-      
-      setMessages(prev => [...prev, newModelMsg]);
+      const responseText = response.text || "...";
+
+      const isDiagnosis =
+        responseText.includes('Tu Máscara') ||
+        responseText.includes('Tu Raíz') ||
+        responseText.includes('Tu Patrón Inconsciente');
+
+      if (isDiagnosis) {
+        setPendingDiagnosis(responseText);
+        setShowEmailForm(true);
+      } else {
+        const newModelMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'model',
+          text: responseText,
+        };
+        setMessages(prev => [...prev, newModelMsg]);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMsg: Message = {
@@ -247,27 +295,81 @@ export default function App() {
               )}
               <div ref={messagesEndRef} />
             </div>
-            
-            <div className="p-6 shrink-0">
-              <form onSubmit={handleSubmit} className="relative flex items-center">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Tu respuesta..."
-                  disabled={isLoading}
-                  className="w-full bg-transparent border-b border-white/20 py-4 pr-12 text-lg focus:outline-none focus:border-white/60 transition-colors disabled:opacity-50"
-                  autoFocus
-                />
-                <button 
-                  type="submit" 
-                  disabled={!input.trim() || isLoading}
-                  className="absolute right-0 p-2 text-white/40 hover:text-white disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </form>
-            </div>
+
+            {showEmailForm ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="p-6 shrink-0"
+              >
+                <div className="border border-white/10 rounded-2xl p-8 md:p-10 bg-white/[0.02] backdrop-blur-sm">
+                  <div className="text-center mb-8">
+                    <h3 className="font-serif text-2xl md:text-3xl font-light tracking-tight mb-3">
+                      Tu diagnóstico está listo
+                    </h3>
+                    <p className="text-white/50 text-sm md:text-base leading-relaxed max-w-md mx-auto">
+                      Ingresa tu nombre y email para recibir tu perfil BDL completo + una guía personalizada de transformación.
+                    </p>
+                  </div>
+                  <form onSubmit={handleEmailSubmit} className="space-y-5 max-w-sm mx-auto">
+                    <div>
+                      <input
+                        type="text"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Tu nombre"
+                        required
+                        disabled={isSubmittingEmail}
+                        className="w-full bg-transparent border-b border-white/20 py-3 text-base focus:outline-none focus:border-white/60 transition-colors placeholder:text-white/30 disabled:opacity-50"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Tu email"
+                        required
+                        disabled={isSubmittingEmail}
+                        className="w-full bg-transparent border-b border-white/20 py-3 text-base focus:outline-none focus:border-white/60 transition-colors placeholder:text-white/30 disabled:opacity-50"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!nombre.trim() || !email.trim() || isSubmittingEmail}
+                      className="w-full mt-4 group relative inline-flex items-center justify-center px-8 py-4 font-medium tracking-widest text-xs uppercase border border-white/20 rounded-full hover:bg-white hover:text-black transition-all duration-500 overflow-hidden cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <span className="relative z-10">
+                        {isSubmittingEmail ? 'Preparando...' : 'Revelar mi diagnóstico'}
+                      </span>
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="p-6 shrink-0">
+                <form onSubmit={handleSubmit} className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Tu respuesta..."
+                    disabled={isLoading}
+                    className="w-full bg-transparent border-b border-white/20 py-4 pr-12 text-lg focus:outline-none focus:border-white/60 transition-colors disabled:opacity-50"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || isLoading}
+                    className="absolute right-0 p-2 text-white/40 hover:text-white disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </form>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
