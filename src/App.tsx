@@ -65,7 +65,7 @@ export default function App() {
     setIsSubmittingEmail(true);
 
     try {
-      await fetch('https://hooks.example.com/webhook/bdl-lead', {
+      await fetch('https://services.leadconnectorhq.com/hooks/JjPQcPMDSUM4LdEE0pGZ/webhook-trigger/3d322c11-8802-475c-b46d-b8c1bb02045b', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
